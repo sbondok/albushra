@@ -66,6 +66,11 @@ jobs:
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
+      - name: Ensure Redis in staging
+        run: |
+          kubectl -n ${{ env.STAGING_NAMESPACE }} apply -f k8s/staging/redis-deployment.yaml || true
+          kubectl -n ${{ env.STAGING_NAMESPACE }} rollout status deployment/albushra-redis --timeout=60s || true
+
       - name: Deploy image to staging
         run: |
           IMAGE=${{ needs.build-and-publish.outputs.image }}
@@ -79,6 +84,26 @@ jobs:
         run: |
           IMAGE=${{ needs.build-and-publish.outputs.image }}
           kubectl -n ${{ env.STAGING_NAMESPACE }} run migrate-$$ --restart=OnFailure --image=$IMAGE --command -- npx prisma migrate deploy --preview-feature || true
+
+      - name: Smoke test
+        run: |
+          if [ -z "${{ env.STAGING_URL }}" ]; then echo "STAGING_URL is not set"; exit 1; fi
+          echo "Checking health..."
+          curl --fail --show-error "${{ env.STAGING_URL }}/api/health"
+          echo "Checking protected endpoint returns 401 (unauthenticated)..."
+          status=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.STAGING_URL }}/api/payments")
+          if [ "$status" -ne 401 ]; then echo "Expected 401 from /api/payments, got $status"; exit 1; fi
+
+      - name: Run e2e tests
+        run: |
+          echo "Running e2e tests against ${{ env.STAGING_URL }}"
+          npm ci
+          STAGING_URL=${{ env.STAGING_URL }} npm run test:e2e
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          kubectl -n ${{ env.STAGING_NAMESPACE }} rollout undo deployment/albushra-fees-system || true
 
       - name: Smoke test
         run: |

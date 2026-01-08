@@ -5,7 +5,7 @@ This document lists the secrets required for running CI, staging deployments, an
 ## Application Secrets
 - NEXTAUTH_SECRET — A 32+ byte random secret used by NextAuth for signing JWTs/session cookies. Example: `$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")`
 - DATABASE_URL — Connection string for your database. For Postgres: `postgresql://user:pass@host:port/dbname`
-- REDIS_URL — (Optional) Redis connection URL for rate limiting: `redis://host:6379`
+- REDIS_URL — (Optional) Redis connection URL for rate limiting: `redis://[:password@]host:6379` (if using in-cluster Redis, set `redis://albushra-redis:6379` or configure an external managed Redis)
 - NEXTAUTH_URL — The canonical URL for the environment, e.g., `https://staging.example.com`
 
 ## CI / Registry Secrets

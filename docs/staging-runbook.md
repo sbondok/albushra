@@ -4,6 +4,7 @@ This runbook outlines steps for deploying to Staging, verifying the deployment, 
 
 ## Preconditions
 - `STAGING_URL`, `KUBE_CONFIG`, `DATABASE_URL`, `NEXTAUTH_SECRET`, `REDIS_URL`, and registry credentials are configured in GitHub Secrets.
+- Alternatively, you may apply the included Redis manifest `k8s/staging/redis-deployment.yaml` to provide an in-cluster Redis for staging.
 - Kubernetes namespace `staging` exists with appropriate RBAC.
 
 ## Deploy (manual)
@@ -18,6 +19,7 @@ This runbook outlines steps for deploying to Staging, verifying the deployment, 
   - Attempt login and access protected endpoint, expect 401 unauthenticated and 200 when authenticated.
 - Business flow:
   - Create a payment, upload a sample file, verify invoice state updates.
+- Optional: run the included e2e suite locally or from CI using `STAGING_URL` to verify end-to-end behavior (tests located in `test/e2e`).
 
 ## Rollback
 If deployment fails or critical errors occur:
