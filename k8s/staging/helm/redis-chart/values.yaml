@@ -20,6 +20,19 @@ service:
   port: 6379
   type: ClusterIP
 
+# Probe configuration (tunable for slower startup or heavier persistence loads)
+probes:
+  readiness:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 12
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 5
+
 nodeSelector: {}
 
 tolerations: []
