@@ -76,3 +76,57 @@ jobs:
           if [ -z "${{ env.STAGING_URL }}" ]; then echo "STAGING_URL not set, skipping app health check"; exit 0; fi
           echo "Checking app health endpoint..."
           curl --fail --show-error "${{ env.STAGING_URL }}/api/health" || true
+
+  local-kind:
+    runs-on: ubuntu-latest
+    needs: []
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Setup Kind
+        uses: engineerd/setup-kind@v0.11.0
+        with:
+          version: v0.20.0
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster --name staging-test --wait 60s
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Export kubeconfig for kind
+        run: |
+          kind get kubeconfig --name staging-test > kubeconfig
+          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+
+      - name: Install HA Redis via Helm (local Kind)
+        run: |
+          helm upgrade --install albushra-redis k8s/staging/helm/redis-chart --wait --timeout=300s --set redis.password=changeme --set replicaCount=1 || true
+
+      - name: Wait and capture timings
+        run: |
+          kubectl -n default wait --for=condition=Ready pod -l app=albushra-redis --timeout=300s || true
+          kubectl -n default get pods -l app=albushra-redis -o jsonpath='{range .items[*]}{.metadata.name} {.status.startTime} {.status.conditions[?(@.type=="Ready")].lastTransitionTime}{"\n"}{end}'
+
+      - name: Collect logs
+        run: |
+          for p in $(kubectl -n default get pods -l app=albushra-redis -o name); do
+            echo "=== $p ==="
+            kubectl -n default describe $p || true
+            kubectl -n default logs $p --tail=200 || true
+          done
+
+      - name: Teardown kind cluster
+        if: always()
+        run: |
+          kind delete cluster --name staging-test || true
