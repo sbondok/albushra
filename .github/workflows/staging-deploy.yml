@@ -83,7 +83,11 @@ jobs:
       - name: Smoke test
         run: |
           if [ -z "${{ env.STAGING_URL }}" ]; then echo "STAGING_URL is not set"; exit 1; fi
+          echo "Checking health..."
           curl --fail --show-error "${{ env.STAGING_URL }}/api/health"
+          echo "Checking protected endpoint returns 401 (unauthenticated)..."
+          status=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.STAGING_URL }}/api/payments")
+          if [ "$status" -ne 401 ]; then echo "Expected 401 from /api/payments, got $status"; exit 1; fi
 
       - name: Rollback on failure
         if: failure()
