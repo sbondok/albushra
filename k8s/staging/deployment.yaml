@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: albushra-fees-system
+  namespace: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: albushra
+  template:
+    metadata:
+      labels:
+        app: albushra
+    spec:
+      containers:
+        - name: albushra-app
+          image: "REPLACE_WITH_REGISTRY/albushra:{{GITHUB_SHA}}"
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              value: "${DATABASE_URL}"
+            - name: NEXTAUTH_URL
+              value: "${NEXTAUTH_URL}"
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: albushra-staging-secrets
+                  key: nextauth-secret
+            - name: REDIS_URL
+              value: "${REDIS_URL}"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 20

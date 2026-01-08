@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   secret: NEXTAUTH_SECRET,
-  debug: true, // Enable debug logs
+  debug: process.env.NODE_ENV !== 'production', // Enable debug logs only in non-production
   providers: [
     CredentialsProvider({
       name: "Credentials",
