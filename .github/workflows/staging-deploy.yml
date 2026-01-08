@@ -73,7 +73,10 @@ jobs:
             echo "Installing HA Redis via in-repo Helm chart..."
             helm upgrade --install albushra-redis k8s/staging/helm/redis-chart -n ${{ env.STAGING_NAMESPACE }} --create-namespace --wait --timeout=120s \
               --set "redis.password=${{ secrets.STAGING_REDIS_PASSWORD }}" \
-              --set replicaCount=3 || true
+              --set replicaCount=3
+            echo "Waiting for StatefulSet to be ready..."
+            kubectl -n ${{ env.STAGING_NAMESPACE }} rollout status statefulset/albushra-redis --timeout=180s
+            kubectl -n ${{ env.STAGING_NAMESPACE }} wait --for=condition=ready pod -l app=albushra-redis --timeout=180s
           else
             kubectl -n ${{ env.STAGING_NAMESPACE }} apply -f k8s/staging/redis-deployment.yaml || true
             kubectl -n ${{ env.STAGING_NAMESPACE }} rollout status deployment/albushra-redis --timeout=60s || true
