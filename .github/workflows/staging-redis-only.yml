@@ -22,15 +22,22 @@ jobs:
 
       - name: Configure Kubeconfig
         run: |
+          if [ -z "$KUBE_CONFIG" ]; then echo "KUBE_CONFIG secret is empty; aborting"; exit 1; fi
           echo "$KUBE_CONFIG" | base64 --decode > kubeconfig
           echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
           echo "Configured KUBECONFIG=$(pwd)/kubeconfig"
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
+      - name: Print kubeconfig (debug)
+        run: |
+          echo "--- kubeconfig head ---"
+          sed -n '1,200p' kubeconfig || true
+
       - name: Debug kubectl config
         run: |
           kubectl config view --minify || true
+          kubectl config current-context || true
           kubectl version --client=true || true
 
       - name: Ensure Redis in staging (Helm or manifest)
