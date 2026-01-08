@@ -9,7 +9,7 @@ This runbook outlines steps for deploying to Staging, verifying the deployment, 
 
 ## Deploy (manual)
 1. Push to `staging` branch or create a PR with label `deploy/staging`.
-2. GitHub Actions will run the `staging-deploy` workflow.
+2. GitHub Actions will run the `staging-deploy` workflow (set `USE_HELM_REDIS=true` to install the in-repo HA Helm chart and ensure you have `STAGING_REDIS_PASSWORD` set in GitHub Secrets).
 3. On success, verify smoke tests passed in the workflow logs.
 
 ## Manual Validation

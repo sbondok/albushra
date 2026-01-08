@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: albushra-redis-headless
+  labels:
+    app: albushra-redis
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.service.port }}
+      name: redis
+  selector:
+    app: albushra-redis

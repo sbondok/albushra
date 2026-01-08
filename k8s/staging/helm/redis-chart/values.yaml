@@ -1,0 +1,27 @@
+# Default values for albushra-redis
+replicaCount: 3
+
+image:
+  repository: redis
+  tag: "7-alpine"
+  pullPolicy: IfNotPresent
+
+redis:
+  # Set a non-empty password for HA deployments. You can pass via --set redis.password=<pw>
+  password: ""
+
+resources: {}
+
+persistence:
+  enabled: true
+  size: 1Gi
+
+service:
+  port: 6379
+  type: ClusterIP
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

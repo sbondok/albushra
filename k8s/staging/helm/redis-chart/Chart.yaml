@@ -1,0 +1,6 @@
+apiVersion: v2
+name: albushra-redis
+description: "HA Redis for Staging (in-repo Helm chart)"
+type: application
+version: 0.1.0
+appVersion: "7"

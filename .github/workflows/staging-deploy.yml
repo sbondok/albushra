@@ -68,8 +68,16 @@ jobs:
 
       - name: Ensure Redis in staging
         run: |
-          kubectl -n ${{ env.STAGING_NAMESPACE }} apply -f k8s/staging/redis-deployment.yaml || true
-          kubectl -n ${{ env.STAGING_NAMESPACE }} rollout status deployment/albushra-redis --timeout=60s || true
+          # If USE_HELM_REDIS is set (true), install the in-repo Helm chart for HA Redis.
+          if [ "${{ env.USE_HELM_REDIS }}" = "true" ]; then
+            echo "Installing HA Redis via in-repo Helm chart..."
+            helm upgrade --install albushra-redis k8s/staging/helm/redis-chart -n ${{ env.STAGING_NAMESPACE }} --create-namespace --wait --timeout=120s \
+              --set "redis.password=${{ secrets.STAGING_REDIS_PASSWORD }}" \
+              --set replicaCount=3 || true
+          else
+            kubectl -n ${{ env.STAGING_NAMESPACE }} apply -f k8s/staging/redis-deployment.yaml || true
+            kubectl -n ${{ env.STAGING_NAMESPACE }} rollout status deployment/albushra-redis --timeout=60s || true
+          fi
 
       - name: Deploy image to staging
         run: |
