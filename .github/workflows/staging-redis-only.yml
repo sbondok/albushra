@@ -23,9 +23,15 @@ jobs:
       - name: Configure Kubeconfig
         run: |
           echo "$KUBE_CONFIG" | base64 --decode > kubeconfig
-          export KUBECONFIG=$(pwd)/kubeconfig
+          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+          echo "Configured KUBECONFIG=$(pwd)/kubeconfig"
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Debug kubectl config
+        run: |
+          kubectl config view --minify || true
+          kubectl version --client=true || true
 
       - name: Ensure Redis in staging (Helm or manifest)
         run: |
