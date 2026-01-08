@@ -1,0 +1,65 @@
+name: Staging Redis Only
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ['staging']
+
+env:
+  STAGING_NAMESPACE: staging
+
+jobs:
+  install-redis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure Kubeconfig
+        run: |
+          echo "$KUBE_CONFIG" | base64 --decode > kubeconfig
+          export KUBECONFIG=$(pwd)/kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Ensure Redis in staging (Helm or manifest)
+        run: |
+          set -euo pipefail
+          if [ "${{ env.USE_HELM_REDIS }}" = "true" ]; then
+            echo "Installing HA Redis via in-repo Helm chart..."
+            helm upgrade --install albushra-redis k8s/staging/helm/redis-chart -n ${{ env.STAGING_NAMESPACE }} --create-namespace --wait --timeout=300s \
+              --set "redis.password=${{ secrets.STAGING_REDIS_PASSWORD }}" \
+              --set replicaCount=3
+          else
+            echo "Applying lightweight Redis manifest..."
+            kubectl -n ${{ env.STAGING_NAMESPACE }} apply -f k8s/staging/redis-deployment.yaml || true
+            kubectl -n ${{ env.STAGING_NAMESPACE }} rollout status deployment/albushra-redis --timeout=300s || true
+          fi
+
+      - name: Wait for pods to be Ready and collect timings
+        run: |
+          set -euo pipefail
+          echo "Waiting for all Redis pods to be ready (timeout 300s)..."
+          kubectl -n ${{ env.STAGING_NAMESPACE }} wait --for=condition=Ready pod -l app=albushra-redis --timeout=300s || true
+
+          echo "Collecting pod start and ready timestamps:"
+          kubectl -n ${{ env.STAGING_NAMESPACE }} get pods -l app=albushra-redis -o jsonpath='{range .items[*]}{.metadata.name} {.status.startTime} {.status.conditions[?(@.type=="Ready")].lastTransitionTime}{"\n"}{end}'
+
+          echo "Showing pod events (last 200 lines each):"
+          for p in $(kubectl -n ${{ env.STAGING_NAMESPACE }} get pods -l app=albushra-redis -o name); do
+            echo "=== $p ==="
+            kubectl -n ${{ env.STAGING_NAMESPACE }} describe $p | sed -n '1,200p'
+            kubectl -n ${{ env.STAGING_NAMESPACE }} logs $p --tail=200 || true
+          done
+
+      - name: Optional app health check
+        if: env.STAGING_URL != ''
+        run: |
+          if [ -z "${{ env.STAGING_URL }}" ]; then echo "STAGING_URL not set, skipping app health check"; exit 0; fi
+          echo "Checking app health endpoint..."
+          curl --fail --show-error "${{ env.STAGING_URL }}/api/health" || true
