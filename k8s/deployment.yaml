@@ -1,0 +1,71 @@
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: albushra-secrets
+type: Opaque
+data:
+  # Base64 for "JiuSecretKey_Albushra_2024_Secure" (example)
+  # echo -n "JiuSecretKey_Albushra_2024_Secure" | base64
+  nextauth-secret: Sml1U2VjcmV0S2V5X0FsYnVzaHJhXzIwMjRfU2VjdXJl
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: albushra-db-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: albushra-fees-system
+spec:
+  replicas: 1 # Must be 1 for SQLite to avoid lock contention
+  selector:
+    matchLabels:
+      app: albushra
+  template:
+    metadata:
+      labels:
+        app: albushra
+    spec:
+      containers:
+        - name: albushra-app
+          image: albushra-app:latest # Replace with your registry image
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - mountPath: /app/prisma/db
+              name: db-volume
+          env:
+            - name: DATABASE_URL
+              value: "file:/app/prisma/db/prod.db"
+            - name: NEXTAUTH_URL
+              value: "http://localhost" # Change this to your domain in production
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: albushra-secrets
+                  key: nextauth-secret
+      volumes:
+        - name: db-volume
+          persistentVolumeClaim:
+            claimName: albushra-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: albushra-service
+spec:
+  selector:
+    app: albushra
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: LoadBalancer # Or ClusterIP/NodePort based on your environment

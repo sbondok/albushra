@@ -1,0 +1,18 @@
+
+version: '3.9'
+
+services:
+  albushra-app:
+    container_name: albushra-container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount the sqlite db directory to persist data
+      - ./prisma/db:/app/prisma/db
+    environment:
+      # Ensure DATABASE_URL matches the mount path inside container
+      - DATABASE_URL=file:/app/prisma/db/prod.db
+    restart: always

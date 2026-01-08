@@ -1,0 +1,155 @@
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String      @id @default(uuid())
+  username     String      @unique
+  passwordHash String
+  role         Role        @relation(fields: [roleId], references: [id])
+  roleId       String
+  email        String?     @unique
+  isActive     Boolean     @default(true)
+  auditLogs    AuditLog[]
+  paymentsCreated Payment[]
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  permissions String   // JSON string
+  users       User[]
+}
+
+model Guardian {
+  id             String  @id @default(uuid())
+  nationalId     String  @unique
+  name           String
+  mobilePrimary  String
+  mobileSecondary String? // Comma separated for search
+  email          String?
+  accountStatus  String  @default("active") // active, defaulting, refusing
+  legalStatus    String?
+  customFields   String? // JSON
+
+  studentGuardians StudentGuardian[]
+  invoices       Invoice[]
+  payments       Payment[]
+  statusHistory  StatusHistory[]
+}
+
+model Student {
+  id             String @id @default(uuid())
+  nationalId     String @unique
+  name           String
+  currentGrade   String?
+  currentTermId  String?
+
+  studentGuardians StudentGuardian[]
+  invoices       Invoice[]
+}
+
+model StudentGuardian {
+  id               String @id @default(uuid())
+  student          Student @relation(fields: [studentId], references: [id])
+  studentId        String
+  guardian         Guardian @relation(fields: [guardianId], references: [id])
+  guardianId       String
+  relationshipType String // father, mother, other
+  isSponsor        Boolean @default(false)
+
+  @@unique([studentId, guardianId])
+}
+
+model AcademicTerm {
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  invoices  Invoice[]
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  invoiceNumber String   @unique
+  student       Student  @relation(fields: [studentId], references: [id])
+  studentId     String
+  guardian      Guardian @relation(fields: [guardianId], references: [id])
+  guardianId    String
+  term          AcademicTerm? @relation(fields: [termId], references: [id])
+  termId        String?
+  type          String   // term, installment
+  amount        Decimal
+  dueDate       DateTime?
+  status        String   // paid, partial, unpaid
+  amountPaid    Decimal  @default(0)
+  amountDue     Decimal
+  
+  adjustments   InvoiceAdjustment[]
+  allocations   PaymentAllocation[]
+}
+
+model InvoiceAdjustment {
+  id            String   @id @default(uuid())
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId     String
+  oldAmount     Decimal
+  newAmount     Decimal
+  reason        String?
+  adjustedBy    String?
+  adjustmentDate DateTime @default(now())
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  guardian    Guardian @relation(fields: [guardianId], references: [id])
+  guardianId  String
+  amount      Decimal
+  method      String   // cash, transfer, etc
+  referenceNo String?
+  paymentDate DateTime @default(now())
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  notes       String?
+
+  allocations PaymentAllocation[]
+}
+
+model PaymentAllocation {
+  id        String  @id @default(uuid())
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  paymentId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  invoiceId String
+  amount    Decimal
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  oldValues  String?  // JSON
+  newValues  String?  // JSON
+  timestamp  DateTime @default(now())
+}
+
+model StatusHistory {
+  id           String   @id @default(uuid())
+  guardian     Guardian @relation(fields: [guardianId], references: [id])
+  guardianId   String
+  previousStatus String
+  newStatus    String
+  changeReason String?
+  changedBy    String?
+  createdAt    DateTime @default(now())
+}
